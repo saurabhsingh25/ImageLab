@@ -1,4 +1,6 @@
-# Multi-Image Preprocessing Workbench
+# ImageLab
+
+[![CI](https://github.com/saurabhsingh25/ImageLab/actions/workflows/ci.yml/badge.svg)](https://github.com/saurabhsingh25/ImageLab/actions/workflows/ci.yml)
 
 An open-source, interactive web application for building, visualizing, and exporting multi-step image preprocessing pipelines for computer vision tasks. Built with Next.js, React, and Tailwind CSS.
 
@@ -103,6 +105,12 @@ This project is licensed under the MIT License.
 - [OpenCV](https://opencv.org/), [Pillow](https://python-pillow.org/)
 - [Next.js](https://nextjs.org/), [React](https://react.dev/), [Tailwind CSS](https://tailwindcss.com/)
 - [shadcn/ui](https://ui.shadcn.com/) for UI components
+
+---
+
+## CI/CD
+
+This project uses GitHub Actions for continuous integration. Every push and pull request runs lint, build, and test checks automatically. See `.github/workflows/ci.yml` for details.
 
 ---
 
