@@ -32,6 +32,7 @@ import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { useOpenCv } from '../hooks/useOpenCv';
 import { dataUrlToMat, matToDataUrl } from '../lib/utils';
+import ReactMarkdown from 'react-markdown';
 
 // --- TRANSFORM CATEGORIES & OPTIONS ---
 // Each category contains a list of operations with their params and display info
@@ -221,6 +222,8 @@ interface MathematicalExplanationProps {
     description: string
     formula: string
     explanation: string
+    parameterEffects?: string
+    example?: string
     kernel?: number[][]
     kernelDivisor?: number
   } | null
@@ -322,250 +325,280 @@ export default function ImagePreprocessingWorkbench() {
     let matsToRelease: any[] = [mat];
     try {
       for (const step of transformPipeline) {
-        // Basic Operations
-        if (step.type === 'grayscale') {
-          let gray = new cv.Mat();
-          cv.cvtColor(mat, gray, cv.COLOR_RGBA2GRAY);
-          cv.cvtColor(gray, mat, cv.COLOR_GRAY2RGBA);
-          gray.delete();
-        } else if (step.type === 'resize') {
-          let resized = new cv.Mat();
-          const width = step.params.resizeWidth || mat.cols;
-          const height = step.params.resizeHeight || mat.rows;
-          cv.resize(mat, resized, new cv.Size(width, height), 0, 0, cv.INTER_LINEAR);
-          mat.delete();
-          mat = resized;
-          matsToRelease.push(mat);
-        } else if (step.type === 'crop') {
-          const x = Math.max(0, Math.floor((step.params.cropX ?? 0) / 100 * mat.cols));
-          const y = Math.max(0, Math.floor((step.params.cropY ?? 0) / 100 * mat.rows));
-          const w = Math.max(1, Math.floor((step.params.cropWidth ?? 100) / 100 * mat.cols));
-          const h = Math.max(1, Math.floor((step.params.cropHeight ?? 100) / 100 * mat.rows));
-          let roi = mat.roi(new cv.Rect(x, y, w, h));
-          mat.delete();
-          mat = roi;
-          matsToRelease.push(mat);
-        } else if (step.type === 'flip') {
-          let flipped = new cv.Mat();
-          const flipCode = step.params.flipDirection === 'horizontal' ? 1 : 0;
-          cv.flip(mat, flipped, flipCode);
-          mat.delete();
-          mat = flipped;
-          matsToRelease.push(mat);
-        } else if (step.type === 'rotate') {
-          let rotated = new cv.Mat();
-          const angle = step.params.rotateAngle || 0;
-          if (angle === 90) {
-            cv.rotate(mat, rotated, cv.ROTATE_90_CLOCKWISE);
-          } else if (angle === 180) {
-            cv.rotate(mat, rotated, cv.ROTATE_180);
-          } else if (angle === 270) {
-            cv.rotate(mat, rotated, cv.ROTATE_90_COUNTERCLOCKWISE);
-          } else {
-            // Arbitrary angle: use warpAffine
-            const center = new cv.Point(mat.cols / 2, mat.rows / 2);
-            const M = cv.getRotationMatrix2D(center, angle, 1);
-            cv.warpAffine(mat, rotated, M, new cv.Size(mat.cols, mat.rows));
+        try {
+          // Basic Operations
+          if (step.type === 'grayscale') {
+            let gray = new cv.Mat();
+            cv.cvtColor(mat, gray, cv.COLOR_RGBA2GRAY);
+            cv.cvtColor(gray, mat, cv.COLOR_GRAY2RGBA);
+            gray.delete();
+          } else if (step.type === 'resize') {
+            let resized = new cv.Mat();
+            const width = step.params.resizeWidth || mat.cols;
+            const height = step.params.resizeHeight || mat.rows;
+            cv.resize(mat, resized, new cv.Size(width, height), 0, 0, cv.INTER_LINEAR);
+            mat.delete();
+            mat = resized;
+            matsToRelease.push(mat);
+          } else if (step.type === 'crop') {
+            const x = Math.max(0, Math.floor((step.params.cropX ?? 0) / 100 * mat.cols));
+            const y = Math.max(0, Math.floor((step.params.cropY ?? 0) / 100 * mat.rows));
+            const w = Math.max(1, Math.floor((step.params.cropWidth ?? 100) / 100 * mat.cols));
+            const h = Math.max(1, Math.floor((step.params.cropHeight ?? 100) / 100 * mat.rows));
+            let roi = mat.roi(new cv.Rect(x, y, w, h));
+            mat.delete();
+            mat = roi;
+            matsToRelease.push(mat);
+          } else if (step.type === 'flip') {
+            let flipped = new cv.Mat();
+            const flipCode = step.params.flipDirection === 'horizontal' ? 1 : 0;
+            cv.flip(mat, flipped, flipCode);
+            mat.delete();
+            mat = flipped;
+            matsToRelease.push(mat);
+          } else if (step.type === 'rotate') {
+            let rotated = new cv.Mat();
+            const angle = step.params.rotateAngle || 0;
+            if (angle === 90) {
+              cv.rotate(mat, rotated, cv.ROTATE_90_CLOCKWISE);
+            } else if (angle === 180) {
+              cv.rotate(mat, rotated, cv.ROTATE_180);
+            } else if (angle === 270) {
+              cv.rotate(mat, rotated, cv.ROTATE_90_COUNTERCLOCKWISE);
+            } else {
+              // Arbitrary angle: use warpAffine
+              const center = new cv.Point(mat.cols / 2, mat.rows / 2);
+              const M = cv.getRotationMatrix2D(center, angle, 1);
+              cv.warpAffine(mat, rotated, M, new cv.Size(mat.cols, mat.rows));
+              M.delete();
+            }
+            mat.delete();
+            mat = rotated;
+            matsToRelease.push(mat);
+          }
+          // Color Spaces
+          else if (step.type === 'hsv') {
+            let out = new cv.Mat();
+            cv.cvtColor(mat, out, cv.COLOR_RGBA2HSV);
+            cv.cvtColor(out, mat, cv.COLOR_HSV2RGBA);
+            out.delete();
+          } else if (step.type === 'lab') {
+            let out = new cv.Mat();
+            cv.cvtColor(mat, out, cv.COLOR_RGBA2Lab);
+            cv.cvtColor(out, mat, cv.COLOR_Lab2RGBA);
+            out.delete();
+          } else if (step.type === 'ycrcb') {
+            let out = new cv.Mat();
+            cv.cvtColor(mat, out, cv.COLOR_RGBA2YCrCb);
+            cv.cvtColor(out, mat, cv.COLOR_YCrCb2RGBA);
+            out.delete();
+          } else if (step.type === 'hed' || step.type === 'cmyk') {
+            // Not natively supported in OpenCV.js; skip or show warning
+          }
+          // Point Operations
+          else if (step.type === 'contrast' || step.type === 'brightness') {
+            let alpha = (step.params.contrast ?? 100) / 100;
+            let beta = ((step.params.brightness ?? 100) - 100) * 2.55;
+            mat.convertTo(mat, -1, alpha, beta);
+          } else if (step.type === 'gamma') {
+            let gamma = step.params.gamma ?? 1.0;
+            let lut = new cv.Mat(1, 256, cv.CV_8UC1);
+            for (let i = 0; i < 256; i++) lut.data[i] = Math.pow(i / 255, gamma) * 255;
+            let channels = new cv.MatVector();
+            cv.split(mat, channels);
+            for (let i = 0; i < channels.size(); i++) {
+              cv.LUT(channels.get(i), lut, channels.get(i));
+            }
+            cv.merge(channels, mat);
+            lut.delete();
+            channels.delete();
+          } else if (step.type === 'hist_eq') {
+            let ycrcb = new cv.Mat();
+            cv.cvtColor(mat, ycrcb, cv.COLOR_RGBA2YCrCb);
+            let channels = new cv.MatVector();
+            cv.split(ycrcb, channels);
+            cv.equalizeHist(channels.get(0), channels.get(0));
+            cv.merge(channels, ycrcb);
+            cv.cvtColor(ycrcb, mat, cv.COLOR_YCrCb2RGBA);
+            ycrcb.delete();
+            channels.delete();
+          }
+          // Blurring
+          else if (step.type === 'gaussian_blur') {
+            let out = new cv.Mat();
+            let ksize = step.params.blur || 5;
+            cv.GaussianBlur(mat, out, new cv.Size(ksize|1, ksize|1), 0);
+            mat.delete();
+            mat = out;
+            matsToRelease.push(mat);
+          } else if (step.type === 'median_blur') {
+            let out = new cv.Mat();
+            let ksize = step.params.blur || 5;
+            cv.medianBlur(mat, out, ksize|1);
+            mat.delete();
+            mat = out;
+            matsToRelease.push(mat);
+          } else if (step.type === 'bilateral') {
+            let out = new cv.Mat();
+            // Convert RGBA to RGB if needed
+            let input = mat;
+            let converted = null;
+            if (mat.type() === cv.CV_8UC4) {
+              converted = new cv.Mat();
+              cv.cvtColor(mat, converted, cv.COLOR_RGBA2RGB);
+              input = converted;
+            }
+            // Clamp and validate parameters
+            let d = Math.max(1, Math.round(Number(step.params.bilateralDiameter) || 9));
+            let sigmaColor = Math.max(1, Number(step.params.bilateralSigmaColor) || 75);
+            let sigmaSpace = Math.max(1, Number(step.params.bilateralSigmaSpace) || 75);
+            try {
+              cv.bilateralFilter(
+                input, out,
+                d,
+                sigmaColor,
+                sigmaSpace
+              );
+              // Convert back to RGBA if original was RGBA
+              if (mat.type() === cv.CV_8UC4) {
+                cv.cvtColor(out, mat, cv.COLOR_RGB2RGBA);
+              } else {
+                out.copyTo(mat);
+              }
+            } catch (err: any) {
+              console.error('Bilateral filter error:', err);
+              throw new Error('Bilateral filter failed. Please check parameter values.');
+            } finally {
+              out.delete();
+              if (converted) converted.delete();
+            }
+          } else if (step.type === 'nl_means') {
+            // Not natively supported in OpenCV.js; skip or show warning
+          }
+          // Edge Detection
+          else if (step.type === 'canny') {
+            let out = new cv.Mat();
+            cv.Canny(
+              mat, out,
+              step.params.cannyThreshold1 || 50,
+              step.params.cannyThreshold2 || 150
+            );
+            cv.cvtColor(out, mat, cv.COLOR_GRAY2RGBA);
+            out.delete();
+          } else if (step.type === 'sobel') {
+            // Convert to grayscale first
+            let gray = new cv.Mat();
+            cv.cvtColor(mat, gray, cv.COLOR_RGBA2GRAY);
+            let grad = new cv.Mat();
+            cv.Sobel(
+              gray, grad,
+              cv.CV_16S,
+              step.params.sobelDx || 1,
+              step.params.sobelDy || 0
+            );
+            let absGrad = new cv.Mat();
+            cv.convertScaleAbs(grad, absGrad);
+            cv.cvtColor(absGrad, mat, cv.COLOR_GRAY2RGBA);
+            gray.delete();
+            grad.delete();
+            absGrad.delete();
+          } else if (step.type === 'laplacian') {
+            let gray = new cv.Mat();
+            cv.cvtColor(mat, gray, cv.COLOR_RGBA2GRAY);
+            let lap = new cv.Mat();
+            cv.Laplacian(gray, lap, cv.CV_16S);
+            let absLap = new cv.Mat();
+            cv.convertScaleAbs(lap, absLap);
+            cv.cvtColor(absLap, mat, cv.COLOR_GRAY2RGBA);
+            gray.delete();
+            lap.delete();
+            absLap.delete();
+          }
+          // Thresholding
+          else if (step.type === 'simple_thresh') {
+            let gray = new cv.Mat();
+            cv.cvtColor(mat, gray, cv.COLOR_RGBA2GRAY);
+            let out = new cv.Mat();
+            cv.threshold(gray, out, step.params.threshold || 128, 255, cv.THRESH_BINARY);
+            cv.cvtColor(out, mat, cv.COLOR_GRAY2RGBA);
+            gray.delete();
+            out.delete();
+          } else if (step.type === 'adaptive_thresh') {
+            let gray = new cv.Mat();
+            cv.cvtColor(mat, gray, cv.COLOR_RGBA2GRAY);
+            let out = new cv.Mat();
+            cv.adaptiveThreshold(
+              gray, out, 255,
+              cv.ADAPTIVE_THRESH_GAUSSIAN_C,
+              cv.THRESH_BINARY,
+              step.params.adaptiveBlockSize || 11,
+              step.params.adaptiveC || 2
+            );
+            cv.cvtColor(out, mat, cv.COLOR_GRAY2RGBA);
+            gray.delete();
+            out.delete();
+          } else if (step.type === 'otsu') {
+            let gray = new cv.Mat();
+            cv.cvtColor(mat, gray, cv.COLOR_RGBA2GRAY);
+            let out = new cv.Mat();
+            cv.threshold(gray, out, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
+            cv.cvtColor(out, mat, cv.COLOR_GRAY2RGBA);
+            gray.delete();
+            out.delete();
+          }
+          // Morphological
+          else if (["erode", "dilate", "open", "close"].includes(step.type)) {
+            let out = new cv.Mat();
+            let ksize = step.params.morphKernelSize || 3;
+            let kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(ksize, ksize));
+            if (step.type === 'erode') cv.erode(mat, out, kernel);
+            if (step.type === 'dilate') cv.dilate(mat, out, kernel);
+            if (step.type === 'open') cv.morphologyEx(mat, out, cv.MORPH_OPEN, kernel);
+            if (step.type === 'close') cv.morphologyEx(mat, out, cv.MORPH_CLOSE, kernel);
+            mat.delete();
+            mat = out;
+            matsToRelease.push(mat);
+            kernel.delete();
+          }
+          // Geometric
+          else if (step.type === 'translate') {
+            let out = new cv.Mat();
+            let M = cv.matFromArray(2, 3, cv.CV_64F, [1, 0, step.params.translateX || 0, 0, 1, step.params.translateY || 0]);
+            cv.warpAffine(mat, out, M, new cv.Size(mat.cols, mat.rows));
+            mat.delete();
+            mat = out;
+            matsToRelease.push(mat);
             M.delete();
+          } else if (step.type === 'perspective') {
+            // Not implemented: requires 4 source/dest points
+          } else if (step.type === 'affine') {
+            // Not implemented: requires 3 source/dest points
           }
-          mat.delete();
-          mat = rotated;
-          matsToRelease.push(mat);
-        }
-        // Color Spaces
-        else if (step.type === 'hsv') {
-          let out = new cv.Mat();
-          cv.cvtColor(mat, out, cv.COLOR_RGBA2HSV);
-          cv.cvtColor(out, mat, cv.COLOR_HSV2RGBA);
-          out.delete();
-        } else if (step.type === 'lab') {
-          let out = new cv.Mat();
-          cv.cvtColor(mat, out, cv.COLOR_RGBA2Lab);
-          cv.cvtColor(out, mat, cv.COLOR_Lab2RGBA);
-          out.delete();
-        } else if (step.type === 'ycrcb') {
-          let out = new cv.Mat();
-          cv.cvtColor(mat, out, cv.COLOR_RGBA2YCrCb);
-          cv.cvtColor(out, mat, cv.COLOR_YCrCb2RGBA);
-          out.delete();
-        } else if (step.type === 'hed' || step.type === 'cmyk') {
-          // Not natively supported in OpenCV.js; skip or show warning
-        }
-        // Point Operations
-        else if (step.type === 'brightness' || step.type === 'contrast') {
-          let alpha = (step.params.contrast ?? 100) / 100;
-          let beta = ((step.params.brightness ?? 100) - 100) * 2.55;
-          mat.convertTo(mat, -1, alpha, beta);
-        } else if (step.type === 'gamma') {
-          let gamma = step.params.gamma ?? 1.0;
-          let lut = new cv.Mat(1, 256, cv.CV_8UC1);
-          for (let i = 0; i < 256; i++) lut.data[i] = Math.pow(i / 255, gamma) * 255;
-          let channels = new cv.MatVector();
-          cv.split(mat, channels);
-          for (let i = 0; i < channels.size(); i++) {
-            cv.LUT(channels.get(i), lut, channels.get(i));
+          // Blending & Arithmetic
+          else if (step.type === 'add_weighted') {
+            // Not implemented: requires two images
           }
-          cv.merge(channels, mat);
-          lut.delete();
-          channels.delete();
-        } else if (step.type === 'hist_eq') {
-          let ycrcb = new cv.Mat();
-          cv.cvtColor(mat, ycrcb, cv.COLOR_RGBA2YCrCb);
-          let channels = new cv.MatVector();
-          cv.split(ycrcb, channels);
-          cv.equalizeHist(channels.get(0), channels.get(0));
-          cv.merge(channels, ycrcb);
-          cv.cvtColor(ycrcb, mat, cv.COLOR_YCrCb2RGBA);
-          ycrcb.delete();
-          channels.delete();
-        }
-        // Blurring
-        else if (step.type === 'gaussian_blur') {
-          let out = new cv.Mat();
-          let ksize = step.params.blur || 5;
-          cv.GaussianBlur(mat, out, new cv.Size(ksize|1, ksize|1), 0);
-          mat.delete();
-          mat = out;
-          matsToRelease.push(mat);
-        } else if (step.type === 'median_blur') {
-          let out = new cv.Mat();
-          let ksize = step.params.blur || 5;
-          cv.medianBlur(mat, out, ksize|1);
-          mat.delete();
-          mat = out;
-          matsToRelease.push(mat);
-        } else if (step.type === 'bilateral') {
-          let out = new cv.Mat();
-          cv.bilateralFilter(
-            mat, out,
-            step.params.bilateralDiameter || 9,
-            step.params.bilateralSigmaColor || 75,
-            step.params.bilateralSigmaSpace || 75
-          );
-          mat.delete();
-          mat = out;
-          matsToRelease.push(mat);
-        } else if (step.type === 'nl_means') {
-          // Not natively supported in OpenCV.js; skip or show warning
-        }
-        // Edge Detection
-        else if (step.type === 'canny') {
-          let out = new cv.Mat();
-          cv.Canny(
-            mat, out,
-            step.params.cannyThreshold1 || 50,
-            step.params.cannyThreshold2 || 150
-          );
-          cv.cvtColor(out, mat, cv.COLOR_GRAY2RGBA);
-          out.delete();
-        } else if (step.type === 'sobel') {
-          // Convert to grayscale first
-          let gray = new cv.Mat();
-          cv.cvtColor(mat, gray, cv.COLOR_RGBA2GRAY);
-          let grad = new cv.Mat();
-          cv.Sobel(
-            gray, grad,
-            cv.CV_16S,
-            step.params.sobelDx || 1,
-            step.params.sobelDy || 0
-          );
-          let absGrad = new cv.Mat();
-          cv.convertScaleAbs(grad, absGrad);
-          cv.cvtColor(absGrad, mat, cv.COLOR_GRAY2RGBA);
-          gray.delete();
-          grad.delete();
-          absGrad.delete();
-        } else if (step.type === 'laplacian') {
-          let gray = new cv.Mat();
-          cv.cvtColor(mat, gray, cv.COLOR_RGBA2GRAY);
-          let lap = new cv.Mat();
-          cv.Laplacian(gray, lap, cv.CV_16S);
-          let absLap = new cv.Mat();
-          cv.convertScaleAbs(lap, absLap);
-          cv.cvtColor(absLap, mat, cv.COLOR_GRAY2RGBA);
-          gray.delete();
-          lap.delete();
-          absLap.delete();
-        }
-        // Thresholding
-        else if (step.type === 'simple_thresh') {
-          let gray = new cv.Mat();
-          cv.cvtColor(mat, gray, cv.COLOR_RGBA2GRAY);
-          let out = new cv.Mat();
-          cv.threshold(gray, out, step.params.threshold || 128, 255, cv.THRESH_BINARY);
-          cv.cvtColor(out, mat, cv.COLOR_GRAY2RGBA);
-          gray.delete();
-          out.delete();
-        } else if (step.type === 'adaptive_thresh') {
-          let gray = new cv.Mat();
-          cv.cvtColor(mat, gray, cv.COLOR_RGBA2GRAY);
-          let out = new cv.Mat();
-          cv.adaptiveThreshold(
-            gray, out, 255,
-            cv.ADAPTIVE_THRESH_GAUSSIAN_C,
-            cv.THRESH_BINARY,
-            step.params.adaptiveBlockSize || 11,
-            step.params.adaptiveC || 2
-          );
-          cv.cvtColor(out, mat, cv.COLOR_GRAY2RGBA);
-          gray.delete();
-          out.delete();
-        } else if (step.type === 'otsu') {
-          let gray = new cv.Mat();
-          cv.cvtColor(mat, gray, cv.COLOR_RGBA2GRAY);
-          let out = new cv.Mat();
-          cv.threshold(gray, out, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
-          cv.cvtColor(out, mat, cv.COLOR_GRAY2RGBA);
-          gray.delete();
-          out.delete();
-        }
-        // Morphological
-        else if (["erode", "dilate", "open", "close"].includes(step.type)) {
-          let out = new cv.Mat();
-          let ksize = step.params.morphKernelSize || 3;
-          let kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(ksize, ksize));
-          if (step.type === 'erode') cv.erode(mat, out, kernel);
-          if (step.type === 'dilate') cv.dilate(mat, out, kernel);
-          if (step.type === 'open') cv.morphologyEx(mat, out, cv.MORPH_OPEN, kernel);
-          if (step.type === 'close') cv.morphologyEx(mat, out, cv.MORPH_CLOSE, kernel);
-          mat.delete();
-          mat = out;
-          matsToRelease.push(mat);
-          kernel.delete();
-        }
-        // Geometric
-        else if (step.type === 'translate') {
-          let out = new cv.Mat();
-          let M = cv.matFromArray(2, 3, cv.CV_64F, [1, 0, step.params.translateX || 0, 0, 1, step.params.translateY || 0]);
-          cv.warpAffine(mat, out, M, new cv.Size(mat.cols, mat.rows));
-          mat.delete();
-          mat = out;
-          matsToRelease.push(mat);
-          M.delete();
-        } else if (step.type === 'perspective') {
-          // Not implemented: requires 4 source/dest points
-        } else if (step.type === 'affine') {
-          // Not implemented: requires 3 source/dest points
-        }
-        // Blending & Arithmetic
-        else if (step.type === 'add_weighted') {
-          // Not implemented: requires two images
-        }
-        // Contours & Annotation
-        else if (step.type === 'find_contours') {
-          // Not implemented: would require drawing contours
-        } else if (step.type === 'draw_text') {
-          cv.putText(
-            mat,
-            step.params.text || '',
-            new cv.Point(step.params.textX || 10, step.params.textY || 30),
-            cv.FONT_HERSHEY_SIMPLEX,
-            (step.params.textFontSize || 1) / 10,
-            [0, 0, 0, 255],
-            2
-          );
-        } else if (step.type === 'feature_detect') {
-          // Not implemented: would require ORB/SIFT/AKAZE, not in OpenCV.js by default
+          // Contours & Annotation
+          else if (step.type === 'find_contours') {
+            // Not implemented: would require drawing contours
+          } else if (step.type === 'draw_text') {
+            cv.putText(
+              mat,
+              step.params.text || '',
+              new cv.Point(step.params.textX || 10, step.params.textY || 30),
+              cv.FONT_HERSHEY_SIMPLEX,
+              (step.params.textFontSize || 1) / 10,
+              [0, 0, 0, 255],
+              2
+            );
+          } else if (step.type === 'feature_detect') {
+            // Not implemented: would require ORB/SIFT/AKAZE, not in OpenCV.js by default
+          }
+        } catch (err: any) {
+          console.error(`Error in operation '${step.type}':`, err);
+          setImages((prev) => ({ ...prev, processed: null }));
+          alert(`Error in operation '${step.name}': ${err.message || err}`);
+          break;
         }
       }
       const processedUrl = matToDataUrl(mat, cv);
@@ -683,7 +716,9 @@ cv2.imwrite('output_image.jpg', processed_image)`
         title: "Grayscale Conversion",
         description: `Converts a color image to grayscale by removing hue and saturation while retaining luminance. This is done by taking a weighted sum of the red, green, and blue channels for each pixel. The weights (0.299, 0.587, 0.114) reflect human sensitivity to each color.`,
         formula: "Y = 0.299R + 0.587G + 0.114B",
-        explanation: `For each pixel, the output intensity is calculated as: Y = 0.299*R + 0.587*G + 0.114*B. This means green contributes most, blue least. The result is a single-channel image.\n\n**Parameter effects:** No parameters.\n\n**Example:** A red pixel (255,0,0) becomes 76, a green pixel (0,255,0) becomes 150, a blue pixel (0,0,255) becomes 29.`,
+        explanation: `For each pixel, the output intensity is calculated as: Y = 0.299*R + 0.587*G + 0.114*B. This means green contributes most, blue least. The result is a single-channel image.`,
+        parameterEffects: `No parameters for grayscale conversion.`,
+        example: `A red pixel (255,0,0) becomes 76.\nA green pixel (0,255,0) becomes 150.\nA blue pixel (0,0,255) becomes 29.`
       },
       gaussian_blur: {
         title: "Gaussian Blur",
@@ -691,95 +726,125 @@ cv2.imwrite('output_image.jpg', processed_image)`
         kernel: [ [1,2,1], [2,4,2], [1,2,1] ],
         kernelDivisor: 16,
         formula: "G(x,y) = (1/(2πσ²))·e^{-(x²+y²)/(2σ²)}",
-        explanation: `For each pixel, take a square neighborhood (e.g., 3x3, 5x5). Multiply each neighbor by the corresponding kernel value, sum, and divide by the kernel sum.\n\n**Parameter: blur (kernel size)**\n- Increasing kernel size (e.g., 3→7) makes the blur stronger: more pixels are averaged, so the image becomes smoother and details are lost.\n- Decreasing kernel size makes the blur weaker: less smoothing, more detail.\n\n**Example:**\n- blur=3: only immediate neighbors are averaged.\n- blur=11: a much larger area is averaged, so even large features become blurry.\n\n**Intuition:** Like looking through frosted glass: higher blur = thicker glass.`,
+        explanation: `For each pixel, take a square neighborhood (e.g., 3x3, 5x5). Multiply each neighbor by the corresponding kernel value, sum, and divide by the kernel sum.`,
+        parameterEffects: `**Parameter: blur (kernel size)**\n- Increasing kernel size (e.g., 3→7) makes the blur stronger: more pixels are averaged, so the image becomes smoother and details are lost.\n- Decreasing kernel size makes the blur weaker: less smoothing, more detail.`,
+        example: `- blur=3: only immediate neighbors are averaged.\n- blur=11: a much larger area is averaged, so even large features become blurry.\n\n**Intuition:** Like looking through frosted glass: higher blur = thicker glass.`
       },
       median_blur: {
         title: "Median Blur",
         description: `Reduces noise by replacing each pixel with the median value in its neighborhood. Especially effective for salt-and-pepper noise.`,
         formula: "I'(x,y) = median(\mathcal{N}(x,y))",
-        explanation: `For each pixel, sort the values in its neighborhood and pick the median.\n\n**Parameter: blur (kernel size)**\n- Larger kernel = stronger noise reduction, but more detail lost.\n- Too large a kernel can make the image look cartoonish.\n\n**Example:**\n- A single white pixel in a black area will be removed if the kernel is large enough.`,
+        explanation: `For each pixel, sort the values in its neighborhood and pick the median.`,
+        parameterEffects: `**Parameter: blur (kernel size)**\n- Larger kernel = stronger noise reduction, but more detail lost.\n- Too large a kernel can make the image look cartoonish.`,
+        example: `- A single white pixel in a black area will be removed if the kernel is large enough.`
       },
       bilateral: {
         title: "Bilateral Filter",
         description: `Blurs the image while preserving edges by combining spatial and intensity information.`,
         formula: "I'(x) = Σ w_s(x,i)·w_r(I(x),I(i))·I(i)",
-        explanation: `Each neighbor is weighted by both distance (spatial) and color similarity (range).\n\n**Parameters:**\n- Diameter: size of the neighborhood.\n- SigmaColor: how much color difference is tolerated.\n- SigmaSpace: how much spatial distance is tolerated.\n\n**Effects:**\n- Higher SigmaColor = more smoothing across colors (can blur across edges).\n- Higher SigmaSpace = more spatial smoothing.\n\n**Example:**\n- Good for smoothing skin in portraits without blurring edges.`,
+        explanation: `Each neighbor is weighted by both distance (spatial) and color similarity (range).`,
+        parameterEffects: `**Parameters:**\n- Diameter: size of the neighborhood.\n- SigmaColor: how much color difference is tolerated.\n- SigmaSpace: how much spatial distance is tolerated.\n\n**Effects:**\n- Higher SigmaColor = more smoothing across colors (can blur across edges).\n- Higher SigmaSpace = more spatial smoothing.`,
+        example: `- Good for smoothing skin in portraits without blurring edges.`
       },
       canny: {
         title: "Canny Edge Detection",
         description: `Detects edges by finding areas of rapid intensity change. Uses gradient calculation, non-maximum suppression, and hysteresis thresholding.`,
         formula: "Gradient = sqrt((∂I/∂x)^2 + (∂I/∂y)^2)",
-        explanation: `1. Convert to grayscale.\n2. Compute gradients (Sobel).\n3. Thin edges (non-maximum suppression).\n4. Use two thresholds: strong edges (above high), weak edges (between low and high).\n5. Track edges by hysteresis.\n\n**Parameters:**\n- Threshold1: lower bound.\n- Threshold2: upper bound.\n\n**Effects:**\n- Lower thresholds = more edges, more noise.\n- Higher thresholds = fewer, cleaner edges.\n\n**Example:**\n- Threshold1=50, Threshold2=150 is typical for natural images.`,
+        explanation: `1. Convert to grayscale.\n2. Compute gradients (Sobel).\n3. Thin edges (non-maximum suppression).\n4. Use two thresholds: strong edges (above high), weak edges (between low and high).\n5. Track edges by hysteresis.`,
+        parameterEffects: `**Parameters:**\n- Threshold1: lower bound.\n- Threshold2: upper bound.\n\n**Effects:**\n- Lower thresholds = more edges, more noise.\n- Higher thresholds = fewer, cleaner edges.`,
+        example: `- Threshold1=50, Threshold2=150 is typical for natural images.`
       },
       sobel: {
         title: "Sobel Edge Detection",
         description: `Highlights edges by computing the gradient in x and y directions using Sobel kernels.`,
         kernel: [ [-1,0,1], [-2,0,2], [-1,0,1] ],
         formula: "Gx = [-1 0 1; -2 0 2; -1 0 1], Gy = Gx^T",
-        explanation: `For each pixel, apply the kernel to compute the gradient in x (horizontal) or y (vertical).\n\n**Parameters:**\n- Dx: order of derivative x (1 = horizontal edges).\n- Dy: order of derivative y (1 = vertical edges).\n\n**Effects:**\n- Dx=1, Dy=0: horizontal edges.\n- Dx=0, Dy=1: vertical edges.\n- Both=1: diagonal edges.\n\n**Example:**\n- A white square on black: Sobel will highlight the square's edges.`,
+        explanation: `For each pixel, apply the kernel to compute the gradient in x (horizontal) or y (vertical).`,
+        parameterEffects: `**Parameters:**\n- Dx: order of derivative x (1 = horizontal edges).\n- Dy: order of derivative y (1 = vertical edges).\n\n**Effects:**\n- Dx=1, Dy=0: horizontal edges.\n- Dx=0, Dy=1: vertical edges.\n- Both=1: diagonal edges.`,
+        example: `- A white square on black: Sobel will highlight the square's edges.`
       },
       laplacian: {
         title: "Laplacian Edge Detection",
         description: `Detects edges by computing the second derivative (Laplacian) of the image. Sensitive to noise.`,
         kernel: [ [0,1,0], [1,-4,1], [0,1,0] ],
         formula: "∇²I = ∂²I/∂x² + ∂²I/∂y²",
-        explanation: `For each pixel, apply the Laplacian kernel.\n\n**Effects:**\n- Highlights regions of rapid intensity change (edges).\n- Sensitive to noise: may need smoothing first.\n\n**Example:**\n- On a sharp edge, Laplacian gives a strong response.`,
+        explanation: `For each pixel, apply the Laplacian kernel.`,
+        parameterEffects: `- Highlights regions of rapid intensity change (edges).\n- Sensitive to noise: may need smoothing first.`,
+        example: `- On a sharp edge, Laplacian gives a strong response.`
       },
       simple_thresh: {
         title: "Simple Thresholding",
         description: `Converts grayscale image to binary using a fixed threshold.`,
         formula: "I'(x,y) = 255 if I(x,y) > T else 0",
-        explanation: `For each pixel, if its value > threshold, set to 255 (white), else 0 (black).\n\n**Parameter: threshold**\n- Lower threshold = more white pixels.\n- Higher threshold = more black pixels.\n\n**Example:**\n- Threshold=128: mid-gray becomes white, darker becomes black.`,
+        explanation: `For each pixel, if its value > threshold, set to 255 (white), else 0 (black).`,
+        parameterEffects: `**Parameter: threshold**\n- Lower threshold = more white pixels.\n- Higher threshold = more black pixels.`,
+        example: `- Threshold=128: mid-gray becomes white, darker becomes black.`
       },
       adaptive_thresh: {
         title: "Adaptive Thresholding",
         description: `Threshold is determined for smaller regions, allowing for varying lighting.`,
         formula: "T(x,y) = mean(I(x,y) in block) - C",
-        explanation: `For each block, compute the mean (or weighted mean) and subtract C.\n\n**Parameters:**\n- BlockSize: size of the region.\n- C: constant subtracted.\n\n**Effects:**\n- Smaller block = more local adaptation, but more noise.\n- Larger block = smoother, but may miss small features.\n- Higher C = more black pixels.\n\n**Example:**\n- Good for documents with uneven lighting.`,
+        explanation: `For each block, compute the mean (or weighted mean) and subtract C.`,
+        parameterEffects: `**Parameters:**\n- BlockSize: size of the region.\n- C: constant subtracted.\n\n**Effects:**\n- Smaller block = more local adaptation, but more noise.\n- Larger block = smoother, but may miss small features.\n- Higher C = more black pixels.`,
+        example: `- Good for documents with uneven lighting.`
       },
       otsu: {
         title: "Otsu's Thresholding",
         description: `Automatically determines the optimal threshold value by maximizing between-class variance.`,
         formula: "Maximize σ_b^2 = w_0(μ_0-μ_T)^2 + w_1(μ_1-μ_T)^2",
-        explanation: `Tries all possible thresholds and picks the one that best separates foreground and background.\n\n**Effects:**\n- No parameter: works best for bimodal histograms.\n\n**Example:**\n- Useful for segmenting objects from background.`,
+        explanation: `Tries all possible thresholds and picks the one that best separates foreground and background.`,
+        parameterEffects: `- No parameter: works best for bimodal histograms.`,
+        example: `- Useful for segmenting objects from background.`
       },
       erode: {
         title: "Erosion",
         description: `Shrinks bright regions using a structuring element (kernel).`,
         kernel: [ [1,1,1], [1,1,1], [1,1,1] ],
         formula: "I'(x,y) = min(I(x+i, y+j) | (i,j) in kernel)",
-        explanation: `For each pixel, replace with the minimum value in the neighborhood.\n\n**Parameter: kernel size**\n- Larger kernel = more erosion.\n\n**Example:**\n- Removes small white noise, disconnects objects.`,
+        explanation: `For each pixel, replace with the minimum value in the neighborhood.`,
+        parameterEffects: `**Parameter: kernel size**\n- Larger kernel = more erosion.`,
+        example: `- Removes small white noise, disconnects objects.`
       },
       dilate: {
         title: "Dilation",
         description: `Expands bright regions using a structuring element (kernel).`,
         kernel: [ [1,1,1], [1,1,1], [1,1,1] ],
         formula: "I'(x,y) = max(I(x+i, y+j) | (i,j) in kernel)",
-        explanation: `For each pixel, replace with the maximum value in the neighborhood.\n\n**Parameter: kernel size**\n- Larger kernel = more dilation.\n\n**Example:**\n- Fills small holes, connects objects.`,
+        explanation: `For each pixel, replace with the maximum value in the neighborhood.`,
+        parameterEffects: `**Parameter: kernel size**\n- Larger kernel = more dilation.`,
+        example: `- Fills small holes, connects objects.`
       },
       open: {
         title: "Opening",
         description: `Erosion followed by dilation. Removes small objects from the foreground.`,
         formula: "I_open = dilate(erode(I))",
-        explanation: `First erode, then dilate.\n\n**Parameter: kernel size**\n- Larger kernel = removes larger objects.\n\n**Example:**\n- Cleans up salt-and-pepper noise.`,
+        explanation: `First erode, then dilate.`,
+        parameterEffects: `**Parameter: kernel size**\n- Larger kernel = removes larger objects.`,
+        example: `- Cleans up salt-and-pepper noise.`
       },
       close: {
         title: "Closing",
         description: `Dilation followed by erosion. Closes small holes in the foreground.`,
         formula: "I_close = erode(dilate(I))",
-        explanation: `First dilate, then erode.\n\n**Parameter: kernel size**\n- Larger kernel = closes larger holes.\n\n**Example:**\n- Fills gaps in text or objects.`,
+        explanation: `First dilate, then erode.`,
+        parameterEffects: `**Parameter: kernel size**\n- Larger kernel = closes larger holes.`,
+        example: `- Fills gaps in text or objects.`
       },
       translate: {
         title: "Translation",
         description: `Shifts the image by a given offset.`,
         formula: "I'(x,y) = I(x-tx, y-ty)",
-        explanation: `Moves the image horizontally and/or vertically.\n\n**Parameters:**\n- translateX: right (+) or left (-)\n- translateY: down (+) or up (-)\n\n**Example:**\n- translateX=10 moves image 10 pixels right.`,
+        explanation: `Moves the image horizontally and/or vertically.`,
+        parameterEffects: `**Parameters:**\n- translateX: right (+) or left (-)\n- translateY: down (+) or up (-)\n\n**Example:**\n- translateX=10 moves image 10 pixels right.`,
+        example: `- translateX=10 moves image 10 pixels right.`
       },
       draw_text: {
         title: "Draw Text",
         description: `Draws text on the image at a specified location.`,
         formula: "N/A",
-        explanation: `Renders a string using a font at the given coordinates.\n\n**Parameters:**\n- text: the string\n- textX, textY: position\n- textFontSize: size\n- textColor: color\n\n**Example:**\n- text="Hello", textX=50, textY=50 draws 'Hello' at (50,50).`,
+        explanation: `Renders a string using a font at the given coordinates.`,
+        parameterEffects: `**Parameters:**\n- text: the string\n- textX, textY: position\n- textFontSize: size\n- textColor: color\n\n**Example:**\n- text="Hello", textX=50, textY=50 draws 'Hello' at (50,50).`,
+        example: `- text="Hello", textX=50, textY=50 draws 'Hello' at (50,50).`
       },
       // Add more as needed...
     };
@@ -895,6 +960,10 @@ cv2.imwrite('output_image.jpg', processed_image)`
                   <div className="space-y-4">
                     {currentOperation.params.map((param) => {
                       const typedParam = param as keyof TransformParams;
+                      // Custom slider settings for bilateral filter
+                      let min = 0, max = 200, step = 1;
+                      if (param === 'bilateralDiameter') { min = 1; max = 15; step = 2; }
+                      if (param === 'bilateralSigmaColor' || param === 'bilateralSigmaSpace') { min = 1; max = 200; step = 1; }
                       return (
                         <div key={param} className="space-y-2">
                           <Label htmlFor={param}>
@@ -902,10 +971,10 @@ cv2.imwrite('output_image.jpg', processed_image)`
                           </Label>
                           <Slider
                             id={param}
-                            min={0}
-                            max={200}
-                            step={1}
-                            value={[typeof transformParams[typedParam] === 'number' ? (transformParams[typedParam] as number) : 0]}
+                            min={min}
+                            max={max}
+                            step={step}
+                            value={[typeof transformParams[typedParam] === 'number' ? (transformParams[typedParam] as number) : min]}
                             onValueChange={value => setTransformParams((prev: TransformParams) => ({ ...prev, [typedParam]: value[0] }))}
                           />
                         </div>
@@ -1203,10 +1272,28 @@ function MathematicalExplanation({ explanation }: MathematicalExplanationProps) 
       <div className="mb-2">
         <Info className="inline h-4 w-4 text-orange-500 mr-1" />
         <span className="font-semibold text-sm">Intuitive Explanation:</span>
-        <div className="bg-orange-50 text-sm text-gray-800 rounded-md p-3 mt-1 whitespace-pre-line">
-          {explanation.explanation}
+        <div className="bg-orange-50 text-base text-gray-800 rounded-md p-3 mt-1">
+          <ReactMarkdown>{explanation.explanation}</ReactMarkdown>
         </div>
       </div>
+      {explanation.parameterEffects && (
+        <div className="mb-2">
+          <Info className="inline h-4 w-4 text-blue-500 mr-1" />
+          <span className="font-semibold text-sm">Parameter Effects:</span>
+          <div className="bg-blue-50 text-base text-gray-800 rounded-md p-3 mt-1">
+            <ReactMarkdown>{explanation.parameterEffects}</ReactMarkdown>
+          </div>
+        </div>
+      )}
+      {explanation.example && (
+        <div className="mb-2">
+          <Info className="inline h-4 w-4 text-green-500 mr-1" />
+          <span className="font-semibold text-sm">Example:</span>
+          <div className="bg-green-50 text-base text-gray-800 rounded-md p-3 mt-1">
+            <ReactMarkdown>{explanation.example}</ReactMarkdown>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
