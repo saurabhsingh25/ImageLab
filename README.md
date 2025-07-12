@@ -9,10 +9,11 @@ An open-source, interactive web application for building, visualizing, and expor
 ## 🚀 Overview
 
 The Multi-Image Preprocessing Workbench lets you:
-- Upload images and apply a sequence of common preprocessing transforms (blur, threshold, contrast, brightness, sharpen, crop)
+- Upload images and apply a sequence of common preprocessing transforms (blur, threshold, contrast, brightness, sharpen, crop, and many more)
 - Visualize each step and preview the final result
 - Export the entire pipeline as ready-to-use Python (OpenCV + PIL) code
-- Explore the mathematical intuition behind each transform
+- **Explore the mathematical intuition behind each transform, with detailed, beginner-friendly explanations, formulas, kernels, and parameter effects**
+- All image processing is performed in-browser using OpenCV.js (WebAssembly)
 
 This tool is ideal for computer vision practitioners, students, and educators who want to experiment with preprocessing pipelines before deploying them in Python projects.
 
@@ -23,15 +24,22 @@ This tool is ideal for computer vision practitioners, students, and educators wh
 - **Drag-and-drop or click to upload images**
 - **Pipeline builder:** Add, reorder, and remove transforms
 - **Supported transforms:**
-  - Gaussian Blur
-  - Binary Threshold
-  - Contrast Adjustment
-  - Brightness Adjustment
-  - Sharpening
-  - Cropping
+  - Gaussian Blur, Median Blur, Bilateral Filter
+  - Binary/Adaptive/Otsu Threshold
+  - Contrast, Brightness, Gamma Correction
+  - Sharpening, Cropping, Resize, Flip, Rotate
+  - Color space conversions (HSV, LAB, YCrCb, etc.)
+  - Edge detection (Canny, Sobel, Laplacian)
+  - Morphological operations (Erosion, Dilation, Opening, Closing)
+  - Geometric transforms (Translation, etc.)
+  - Draw text annotation
 - **Parameter controls:** Fine-tune each transform's parameters
 - **Live preview:** See the effect of each step instantly
-- **Mathematical explanations:** Learn the math behind each operation
+- **Mathematical explanations:**
+  - **Detailed, beginner-friendly intuition for every operation**
+  - **Formulas, kernels, step-by-step descriptions, and parameter effects**
+  - **Examples of how changing parameters affects the image**
+  - *(Markdown rendering for explanations coming soon!)*
 - **Python code export:** Generate Python code for your pipeline (OpenCV + PIL)
 - **Download processed images**
 - **Responsive UI:** Works on desktop and mobile
@@ -83,7 +91,7 @@ styles/             # Global and Tailwind CSS
 2. Add transforms to the pipeline and adjust their parameters
 3. Preview the result after each step
 4. Download the processed image or export the pipeline as Python code
-5. Explore the mathematical intuition for each transform
+5. Explore the mathematical intuition for each transform (click the "Mathematical Intuition" button)
 
 ---
 
@@ -92,6 +100,7 @@ styles/             # Global and Tailwind CSS
 Contributions, issues, and feature requests are welcome!
 - Fork the repo and create your branch
 - Submit a pull request describing your changes
+- **To improve or add new mathematical explanations, edit the explanations in `app/page.tsx` or suggest new markdown content!**
 
 ---
 

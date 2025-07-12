@@ -73,3 +73,56 @@ This document lists possible improvements for the Multi-Image Preprocessing Work
 ---
 
 *These improvements are suggestions for future development and codebase excellence. Contributions are welcome!* 
+
+# OpenCV.js Integration Plan
+
+To support advanced image processing operations (blurring, edge detection, color space conversion, morphology, thresholding, etc.) directly in the browser, we will migrate the pipeline to use OpenCV.js (WebAssembly version of OpenCV).
+
+## Integration Steps
+
+1. **Add OpenCV.js to the Project**
+   - Use the official CDN to load OpenCV.js in the browser.
+   - Ensure OpenCV.js is loaded before any processing occurs.
+
+2. **Create a Custom Hook or Utility for OpenCV.js Loading**
+   - Detect when OpenCV.js is ready and expose a loading state to the UI.
+   - Handle errors if OpenCV.js fails to load.
+
+3. **Refactor Image Upload and Conversion**
+   - Convert uploaded images (data URLs) to OpenCV.js `cv.Mat` objects.
+   - Convert processed `cv.Mat` objects back to data URLs for display in `<img>` tags.
+
+4. **Refactor the Processing Pipeline**
+   - Replace all Canvas-based operations with OpenCV.js equivalents.
+   - Implement each operation (grayscale, blur, threshold, etc.) using OpenCV.js functions.
+   - Ensure all pipeline steps work with `cv.Mat` objects.
+
+5. **Update the UI and Controls**
+   - Disable processing controls until OpenCV.js is loaded.
+   - Show error messages for unsupported operations or loading failures.
+
+6. **Testing and Validation**
+   - Test all operations for correctness and performance.
+   - Validate that the output matches Python/OpenCV results where possible.
+
+7. **Documentation**
+   - Update the README and in-app documentation to reflect OpenCV.js usage.
+
+---
+
+We will proceed step by step, starting with loading OpenCV.js and demonstrating a minimal working example (e.g., grayscale or threshold) before migrating the full pipeline. 
+
+## Recent Improvements
+- All image processing is now performed in-browser using OpenCV.js (WebAssembly)
+- Mathematical Intuition section now provides **detailed, beginner-friendly explanations** for all operations, including formulas, kernels, parameter effects, and concrete examples
+- The UI for explanations is now visually rich, modern, and consistent with the rest of the app
+- Markdown rendering for explanations is **planned/coming soon** (will allow lists, bold, tables, etc.)
+- Contributions to explanations and educational content are encouraged! See `app/page.tsx` for how to add or improve explanations
+
+## Future Educational/UX Improvements
+- Render explanations with full markdown support (lists, bold, tables, code, etc.)
+- Add interactive math/diagrams for key operations (e.g., convolution, edge detection)
+- Allow users to suggest or upvote explanations in-app
+- Add more real-world visual examples for each operation
+- Add links to external resources for deeper learning
+- Add a glossary of terms and visual index of operations 
